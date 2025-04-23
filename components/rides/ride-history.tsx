@@ -32,12 +32,38 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { fetchRoute } from "@/lib/routing";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  getMyRidesAsync,
+  resetRiderRides,
+  selectRides,
+} from "@/redux/features/rider/riderSlice";
+import { getAddressFromCoordinates } from "@/utils/common";
+import RidePlace from "./ride-place";
+import Image from "next/image";
+import {
+  getMyRidesForDriverAsync,
+  resetDriverRides,
+  selectDriverRides,
+} from "@/redux/features/driver/driverSlice";
 
 interface RideHistoryProps {
   userType: "rider" | "driver";
 }
 
 export function RideHistory({ userType }: RideHistoryProps) {
+  const dispatch = useDispatch();
+  const rides =
+    userType === "rider"
+      ? useSelector(selectRides)
+      : useSelector(selectDriverRides);
+  // let rides;
+  // if (userType === "rider") {
+  //   rides = useSelector(selectRides);
+  // } else {
+  //   rides = useSelector(selectDriverRides);
+  // }
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -48,12 +74,12 @@ export function RideHistory({ userType }: RideHistoryProps) {
     [number, number]
   > | null>(null);
   const [page, setPage] = useState(1);
-  const handlePage = (page) => {
+  const handlePage = (page: number) => {
     setPage(page);
   };
-  const totalPages = 10;
-  // const totalPages = Math.ceil(totalCompanies / ITEMS_PER_PAGE);
-
+  // const totalPages = 10;
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(rides?.totalElements / ITEMS_PER_PAGE);
   // Fetch route when a ride is selected
   useEffect(() => {
     if (!selectedRide) {
@@ -64,9 +90,10 @@ export function RideHistory({ userType }: RideHistoryProps) {
     const getRoute = async () => {
       try {
         const route = await fetchRoute(
-          selectedRide.pickupLocation,
-          selectedRide.destinationLocation
+          selectedRide.pickupLocation.coordinates,
+          selectedRide.dropoffLocation.coordinates
         );
+
         setRouteCoordinates(route);
       } catch (error) {
         console.error("Failed to fetch route:", error);
@@ -77,26 +104,75 @@ export function RideHistory({ userType }: RideHistoryProps) {
     getRoute();
   }, [selectedRide]);
 
-  // Filter rides based on search term, status, and date
-  const filteredRides = allRides.filter((ride) => {
+  useEffect(() => {
+    const pagination = { pageOffset: page, pageSize: ITEMS_PER_PAGE };
+    if (userType == "driver") {
+      dispatch(getMyRidesForDriverAsync(pagination));
+      // dispatch(resetRiderRides());
+    } else if (userType == "rider") {
+      dispatch(getMyRidesAsync(pagination));
+      // dispatch(resetDriverRides());
+    }
+  }, [page, dispatch]);
+
+  // // Filter rides based on search term, status, and date
+  // const filteredRides = allRides.filter((ride) => {
+  //   const matchesSearch =
+  //     searchTerm === "" ||
+  //     ride.pickup.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     ride.destination.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     (userType === "rider" ? ride.driver.name : ride.rider.name)
+  //       .toLowerCase()
+  //       .includes(searchTerm.toLowerCase());
+
+  //   const matchesStatus =
+  //     statusFilter === "all" || ride.status === statusFilter;
+
+  //   const matchesDate =
+  //     dateFilter === "all" ||
+  //     (dateFilter === "today" && ride.date.includes("Today")) ||
+  //     (dateFilter === "yesterday" && ride.date.includes("Yesterday")) ||
+  //     (dateFilter === "week" &&
+  //       !ride.date.includes("Today") &&
+  //       !ride.date.includes("Yesterday"));
+
+  //   return matchesSearch && matchesStatus && matchesDate;
+  // });
+
+  const filteredRides1 = rides?.content?.filter((ride) => {
     const matchesSearch =
       searchTerm === "" ||
-      ride.pickup.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ride.destination.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (userType === "rider" ? ride.driver.name : ride.rider.name)
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      ride.pickupLocation?.name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      ride.dropoffLocation?.name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (userType === "rider"
+        ? ride.driver?.user?.name?.toLowerCase()
+        : ride.rider?.user?.name?.toLowerCase()
+      )?.includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      statusFilter === "all" || ride.status === statusFilter;
+      statusFilter === "all" || ride.rideStatus === statusFilter;
+
+    const rideDate = new Date(ride.createdTime);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    const isSameDay = (d1, d2) =>
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
 
     const matchesDate =
       dateFilter === "all" ||
-      (dateFilter === "today" && ride.date.includes("Today")) ||
-      (dateFilter === "yesterday" && ride.date.includes("Yesterday")) ||
+      (dateFilter === "today" && isSameDay(rideDate, today)) ||
+      (dateFilter === "yesterday" && isSameDay(rideDate, yesterday)) ||
       (dateFilter === "week" &&
-        !ride.date.includes("Today") &&
-        !ride.date.includes("Yesterday"));
+        !isSameDay(rideDate, today) &&
+        !isSameDay(rideDate, yesterday));
 
     return matchesSearch && matchesStatus && matchesDate;
   });
@@ -110,47 +186,11 @@ export function RideHistory({ userType }: RideHistoryProps) {
         <CardContent>
           <div className="space-y-4">
             {/* Search and filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search rides..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[130px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-[130px]">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
             {/* Rides list */}
             <div className="space-y-4">
-              {filteredRides.length > 0 ? (
-                filteredRides.map((ride) => (
+              {filteredRides1?.length > 0 ? (
+                filteredRides1?.map((ride) => (
                   <Dialog
                     key={ride.id}
                     onOpenChange={(open) => {
@@ -166,46 +206,80 @@ export function RideHistory({ userType }: RideHistoryProps) {
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="font-medium truncate">
-                              {ride.date}
+                              {new Date(ride.startedAt).toLocaleString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                }
+                              )}
                             </div>
                             <Badge
                               variant={
-                                ride.status === "completed"
-                                  ? "default"
-                                  : "destructive"
+                                ride.rideStatus === "CANCELLED"
+                                  ? "destructive"
+                                  : "default"
                               }
                               className={
-                                ride.status === "completed"
+                                ride.rideStatus === "CANCELLED"
+                                  ? "bg-red-600"
+                                  : ride.rideStatus === "CONFIRMED"
+                                  ? "bg-blue-600"
+                                  : ride.rideStatus === "ONGOING"
+                                  ? "bg-yellow-500"
+                                  : ride.rideStatus === "ENDED"
                                   ? "bg-green-600"
-                                  : ""
+                                  : "bg-gray-400"
                               }
                             >
-                              {ride.status === "completed"
+                              {ride.rideStatus === "CANCELLED"
+                                ? "Cancelled"
+                                : ride.rideStatus === "CONFIRMED"
+                                ? "Confirmed"
+                                : ride.rideStatus === "ONGOING"
+                                ? "Ongoing"
+                                : ride.rideStatus === "ENDED"
                                 ? "Completed"
-                                : "Cancelled"}
+                                : "Unknown"}
                             </Badge>
                           </div>
                           <div className="text-sm text-muted-foreground flex items-center mt-1">
-                            <MapPin className="h-3 w-3 mr-1 inline" />
-                            <span className="truncate">{ride.destination}</span>
+                            <MapPin className="h-3 w-3 mr-1 inline text-green-500" />
+                            <span className="truncate">
+                              <RidePlace
+                                coordinates={ride.pickupLocation.coordinates}
+                              />
+                            </span>
+                          </div>
+                          |
+                          <div className="text-sm text-muted-foreground flex items-center mt-1">
+                            <MapPin className="h-3 w-3 mr-1 inline text-red-500" />
+                            <span className="truncate">
+                              <RidePlace
+                                coordinates={ride.dropoffLocation.coordinates}
+                              />
+                            </span>
                           </div>
                           <div className="flex justify-between items-center mt-1">
                             <div className="text-sm text-green-600">
-                              {ride.price}
+                              ₹{ride.fare}
                             </div>
                             <div className="flex items-center text-sm text-muted-foreground">
                               {userType === "rider" ? (
                                 <>
                                   <Car className="h-3 w-3 mr-1" />
                                   <span className="truncate">
-                                    {ride.driver.name}
+                                    {ride.driver.user.name}
                                   </span>
                                 </>
                               ) : (
                                 <>
                                   <User className="h-3 w-3 mr-1" />
                                   <span className="truncate">
-                                    {ride.rider.name}
+                                    {ride.rider.user.name}
                                   </span>
                                 </>
                               )}
@@ -220,27 +294,22 @@ export function RideHistory({ userType }: RideHistoryProps) {
                       </DialogHeader>
                       <div className="space-y-4 mt-2">
                         <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage
-                              src="/placeholder.svg?height=40&width=40"
-                              alt={
-                                userType === "rider"
-                                  ? ride.driver.name
-                                  : ride.rider.name
-                              }
-                            />
-                            <AvatarFallback>
-                              {(userType === "rider"
-                                ? ride.driver.name
-                                : ride.rider.name
-                              ).charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <Image
+                            src={`https://ui-avatars.com/api/?name=${
+                              userType === "rider"
+                                ? ride.driver.user.name
+                                : ride.rider.user.name
+                            }&background=random`}
+                            alt="User avatar"
+                            width={32}
+                            height={32}
+                            className="rounded-full"
+                          />
                           <div>
                             <div className="font-medium">
                               {userType === "rider"
-                                ? ride.driver.name
-                                : ride.rider.name}
+                                ? ride.driver.user.name
+                                : ride.rider.user.name}
                             </div>
                             <div className="flex items-center text-sm text-muted-foreground">
                               <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
@@ -252,12 +321,13 @@ export function RideHistory({ userType }: RideHistoryProps) {
                         </div>
 
                         <OpenLayersMap
-                          riderLocation={ride.pickupLocation}
-                          destinationLocation={ride.destinationLocation}
+                          riderLocation={ride.pickupLocation.coordinates}
+                          destinationLocation={ride.dropoffLocation.coordinates}
                           driverLocation={ride.driverLocation}
                           isRideStarted={true}
                           height="200px"
                           routeCoordinates={routeCoordinates || undefined}
+                          showDriver={false}
                         />
 
                         <div className="grid grid-cols-2 gap-4">
@@ -265,14 +335,25 @@ export function RideHistory({ userType }: RideHistoryProps) {
                             <div className="text-sm text-muted-foreground">
                               Date & Time
                             </div>
-                            <div className="font-medium">{ride.date}</div>
+                            <div className="font-medium">
+                              {new Date(ride.startedAt).toLocaleString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                }
+                              )}
+                            </div>
                           </div>
                           <div>
                             <div className="text-sm text-muted-foreground">
                               Status
                             </div>
                             <div className="font-medium capitalize">
-                              {ride.status}
+                              {ride.rideStatus}
                             </div>
                           </div>
                         </div>
@@ -288,7 +369,11 @@ export function RideHistory({ userType }: RideHistoryProps) {
                               <div className="text-sm text-muted-foreground">
                                 Pickup
                               </div>
-                              <div className="font-medium">{ride.pickup}</div>
+                              <div className="font-medium">
+                                <RidePlace
+                                  coordinates={ride.pickupLocation.coordinates}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -303,7 +388,9 @@ export function RideHistory({ userType }: RideHistoryProps) {
                                 Destination
                               </div>
                               <div className="font-medium">
-                                {ride.destination}
+                                <RidePlace
+                                  coordinates={ride.dropoffLocation.coordinates}
+                                />
                               </div>
                             </div>
                           </div>
@@ -314,13 +401,24 @@ export function RideHistory({ userType }: RideHistoryProps) {
                             <div className="text-sm text-muted-foreground">
                               Ride Time
                             </div>
-                            <div className="font-medium">{ride.rideTime}</div>
+                            <div className="font-medium">
+                              {new Date(ride.startedAt).toLocaleString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                }
+                              )}
+                            </div>
                           </div>
                           <div>
                             <div className="text-sm text-muted-foreground">
                               Price
                             </div>
-                            <div className="font-medium">{ride.price}</div>
+                            <div className="font-medium">₹{ride.fare}</div>
                           </div>
                         </div>
 
@@ -343,26 +441,35 @@ export function RideHistory({ userType }: RideHistoryProps) {
           </div>
         </CardContent>
         <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <a
-              href="#"
+          <div className="flex flex-1 justify-between sm:hidden ">
+            <div
+              onClick={(e) => handlePage(page > 1 ? page - 1 : page)}
               className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Previous
-            </a>
-            <a
-              href="#"
+            </div>
+            <div
+              onClick={(e) => handlePage(page < totalPages ? page + 1 : page)}
               className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Next
-            </a>
+            </div>
           </div>
           <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to{" "}
-                <span className="font-medium">10</span> of{" "}
-                <span className="font-medium">97</span> results
+                Showing{" "}
+                <span className="font-medium">
+                  {(page - 1) * ITEMS_PER_PAGE + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium">
+                  {page * ITEMS_PER_PAGE > rides?.totalElements
+                    ? rides?.totalElements
+                    : page * ITEMS_PER_PAGE}
+                </span>{" "}
+                of <span className="font-medium">{rides?.totalElements}</span>{" "}
+                results
               </p>
             </div>
             <div>
@@ -370,60 +477,33 @@ export function RideHistory({ userType }: RideHistoryProps) {
                 aria-label="Pagination"
                 className="isolate inline-flex -space-x-px rounded-md shadow-xs"
               >
-                <a
-                  href="#"
-                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                <div
+                  onClick={(e) => handlePage(page > 1 ? page - 1 : page)}
+                  className="relative cursor-pointer inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
                 >
                   <span className="sr-only">Previous</span>
                   Previous
-                </a>
-                {/* Current: "z-10 bg-green-600 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600", Default: "text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0" */}
-                <a
-                  href="#"
-                  aria-current="page"
-                  className="relative z-10 inline-flex items-center bg-green-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                >
-                  1
-                </a>
-                <a
-                  href="#"
-                  className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                >
-                  2
-                </a>
-                <a
-                  href="#"
-                  className="relative hidden items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0 md:inline-flex"
-                >
-                  3
-                </a>
-                <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 ring-inset focus:outline-offset-0">
-                  ...
-                </span>
-                <a
-                  href="#"
-                  className="relative hidden items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0 md:inline-flex"
-                >
-                  8
-                </a>
-                <a
-                  href="#"
-                  className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                >
-                  9
-                </a>
-                <a
-                  href="#"
-                  className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                >
-                  10
-                </a>
-                <a
-                  href="#"
-                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                </div>
+                {Array.from({ length: totalPages }).map((el, index) => (
+                  <a
+                    href="#"
+                    onClick={(e) => handlePage(index + 1)}
+                    className={`relative inline-flex ${
+                      index + 1 == page ? "bg-green-600 text-white" : ""
+                    } items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0`}
+                  >
+                    {index + 1}
+                  </a>
+                ))}
+
+                <div
+                  onClick={(e) =>
+                    handlePage(page < totalPages ? page + 1 : page)
+                  }
+                  className="relative cursor-pointer inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
                 >
                   <span className="sr-only">Next</span>Next
-                </a>
+                </div>
               </nav>
             </div>
           </div>

@@ -28,7 +28,7 @@ export function LoginForm() {
   } = useForm<LoginFormInputs>();
   const onSubmit = (data: LoginFormInputs) => {
     setIsLoading(true);
-    console.log(data);
+
     dispatch(loginAsync(data));
     setTimeout(() => {
       setIsLoading(false);

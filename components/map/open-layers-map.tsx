@@ -22,10 +22,13 @@ interface OpenLayersMapProps {
   zoom?: number;
   showControls?: boolean;
   routeCoordinates?: Array<[number, number]>; // Array of [longitude, latitude] points for the route
+  showDriver?: boolean;
+  showDestination?: boolean;
+  showRider?: boolean;
 }
 
 export function OpenLayersMap({
-  driverLocation = [-122.4194, 37.7749], // San Francisco by default
+  driverLocation = [88.4194, 27.7749], // San Francisco by default
   riderLocation = [-122.4161, 37.7665],
   destinationLocation = [-122.4096, 37.7835],
   isRideStarted = false,
@@ -33,6 +36,9 @@ export function OpenLayersMap({
   zoom = 14,
   showControls = false,
   routeCoordinates,
+  showDriver = true,
+  showDestination = true,
+  showRider = true,
 }: OpenLayersMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
@@ -135,10 +141,20 @@ export function OpenLayersMap({
         }),
       })
     );
+    const features = [];
 
-    // Create vector source and layer for markers
+    if (showDriver) {
+      features.push(driverFeature);
+    }
+    if (showRider) {
+      features.push(riderFeature);
+    }
+    if (showDestination) {
+      features.push(destinationFeature);
+    }
+
     const vectorSource = new VectorSource({
-      features: [driverFeature, riderFeature, destinationFeature],
+      features: features,
     });
 
     const vectorLayer = new VectorLayer({

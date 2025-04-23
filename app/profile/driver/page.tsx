@@ -14,7 +14,6 @@ export default function DriverProfilePage() {
   useEffect(() => {
     dispatch(getMyProfileAsync());
   }, [dispatch]);
-  console.log(driverProfile);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

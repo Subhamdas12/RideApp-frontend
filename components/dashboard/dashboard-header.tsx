@@ -73,7 +73,7 @@ export function DashboardHeader({ role }) {
                 >
                   <Avatar className="h-8 w-8 w-full h-full">
                     <AvatarImage
-                      src="https://ui-avatars.com/api/?name=Subham&background=random"
+                      src={`https://ui-avatars.com/api/?name=${user?.name}&background=random`}
                       alt="User avatar"
                       className="object-cover"
                     />

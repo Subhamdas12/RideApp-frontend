@@ -33,7 +33,7 @@ export function SignupForm() {
 
   const onSubmit = (data: SignupFormInputs) => {
     setIsLoading(true);
-    console.log(data);
+
     dispatch(signupAsync(data));
     setTimeout(() => {
       setIsLoading(false);

@@ -9,13 +9,15 @@ import { MapPin, Navigation } from "lucide-react";
 import { GooglePlacesAutocomplete } from "@/components/location/google-places-autocomplete";
 import { OpenLayersMap } from "@/components/map/open-layers-map";
 import { fetchRoute } from "@/lib/routing";
+import RideFare from "./ride-fare";
 
 interface RideRequestFormProps {
   onSubmit: (
     pickup: string,
     destination: string,
     pickupLocation: [number, number],
-    destinationLocation: [number, number]
+    destinationLocation: [number, number],
+    paymentMethod: "CASH" | "WALLET"
   ) => void;
 }
 
@@ -32,6 +34,10 @@ export function RideRequestForm({ onSubmit }: RideRequestFormProps) {
     [number, number]
   > | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "WALLET">("CASH");
+  const togglePaymentMethod = () => {
+    setPaymentMethod((prev) => (prev === "CASH" ? "WALLET" : "CASH"));
+  };
 
   const handlePickupSelect = (place: {
     address: string;
@@ -84,7 +90,13 @@ export function RideRequestForm({ onSubmit }: RideRequestFormProps) {
 
     // Simulate loading
     setTimeout(() => {
-      onSubmit(pickup, destination, pickupLocation, destinationLocation);
+      onSubmit(
+        pickup,
+        destination,
+        pickupLocation,
+        destinationLocation,
+        paymentMethod
+      );
       setIsLoading(false);
     }, 1000);
   };
@@ -94,9 +106,9 @@ export function RideRequestForm({ onSubmit }: RideRequestFormProps) {
       <div className="space-y-2">
         <Label htmlFor="pickup">Pickup Location</Label>
         <GooglePlacesAutocomplete
-          placeholder="Enter pickup address"
           value={pickup}
           onChange={setPickup}
+          placeholder="Enter pickup address"
           onPlaceSelect={handlePickupSelect}
           required
           icon={<MapPin />}
@@ -115,12 +127,55 @@ export function RideRequestForm({ onSubmit }: RideRequestFormProps) {
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="destination">Payment Method</Label>
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <span
+              className={`font-semibold ${
+                paymentMethod === "CASH" ? "text-green-500" : "text-gray-400"
+              }`}
+            >
+              CASH
+            </span>
+
+            <button
+              id="payment-switch"
+              onClick={togglePaymentMethod}
+              type="button"
+              className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
+                paymentMethod === "WALLET" ? "bg-green-500" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                  paymentMethod === "WALLET" ? "translate-x-6" : "translate-x-0"
+                }`}
+              />
+            </button>
+
+            <span
+              className={`font-semibold ${
+                paymentMethod === "WALLET" ? "text-green-500" : "text-gray-400"
+              }`}
+            >
+              WALLET
+            </span>
+          </div>
+        </div>
+        <RideFare
+          pickupLocation={pickupLocation}
+          destinationLocation={destinationLocation}
+        ></RideFare>
+      </div>
+
       {pickupLocation && destinationLocation && (
         <div className="mt-4 mb-4">
           <OpenLayersMap
             riderLocation={pickupLocation}
             destinationLocation={destinationLocation}
             height="200px"
+            showDriver={false}
             routeCoordinates={routeCoordinates || undefined}
           />
         </div>

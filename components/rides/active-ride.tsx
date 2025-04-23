@@ -22,17 +22,13 @@ import {
 import { useState, useEffect } from "react";
 import { OpenLayersMap } from "@/components/map/open-layers-map";
 import { fetchRoute } from "@/lib/routing";
+import RidePlace from "./ride-place";
 
 interface ActiveRideProps {
   ride: {
     id: string;
     status: "searching" | "accepted" | "in_progress" | "completed";
-    driver?: {
-      name: string;
-      rating: number;
-      car: string;
-      licensePlate: string;
-    };
+    driver?: any;
     pickup: string;
     destination: string;
     estimatedTime: string;
@@ -41,6 +37,7 @@ interface ActiveRideProps {
     destinationLocation: [number, number];
     driverLocation?: [number, number];
     routeCoordinates?: Array<[number, number]>;
+    otp: string;
   };
   onCancel: () => void;
 }
@@ -53,13 +50,13 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
   > | null>(ride.routeCoordinates || null);
 
   // Generate OTP when ride is accepted
-  useEffect(() => {
-    if (ride.status === "accepted" && !otp) {
-      // Generate a 4-digit OTP
-      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-      setOtp(generatedOtp);
-    }
-  }, [ride.status, otp]);
+  // useEffect(() => {
+  //   if (ride.status === "accepted" && !otp) {
+  //     // Generate a 4-digit OTP
+  //     const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+  //     setOtp(generatedOtp);
+  //   }
+  // }, [ride.status, otp]);
 
   // Fetch route when ride is accepted or in progress
   useEffect(() => {
@@ -103,7 +100,7 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
   ]);
 
   const copyOtpToClipboard = () => {
-    navigator.clipboard.writeText(otp);
+    navigator.clipboard.writeText(ride.otp);
     setOtpCopied(true);
     setTimeout(() => setOtpCopied(false), 2000);
   };
@@ -146,18 +143,20 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
                 <Avatar className="h-12 w-12">
                   <AvatarImage
                     src="/placeholder.svg?height=48&width=48"
-                    alt={ride.driver.name}
+                    alt={ride.driver.user.name}
                   />
-                  <AvatarFallback>{ride.driver.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>
+                    {ride.driver.user.name.charAt(0)}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="font-medium">{ride.driver.name}</div>
+                  <div className="font-medium">{ride.driver.user.name}</div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
                     {ride.driver.rating}
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {ride.driver.car}
+                    {ride.driver.vehicleId}
                   </div>
                   <div className="text-sm font-medium">
                     {ride.driver.licensePlate}
@@ -181,9 +180,10 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
               isRideStarted={ride.status === "in_progress"}
               routeCoordinates={routeCoordinates || undefined}
             />
+            {console.log(ride)}
 
             {/* OTP Section - Only show when ride is accepted but not started */}
-            {ride.status === "accepted" && otp && (
+            {ride.status === "accepted" && ride.otp && (
               <Alert className="bg-green-50 border-green-200">
                 <div className="flex justify-between items-center">
                   <div>
@@ -192,7 +192,7 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
                     </AlertDescription>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="text-2xl font-bold tracking-widest text-green-700">
-                        {otp}
+                        {ride?.otp}
                       </div>
                       <Button
                         variant="ghost"
@@ -221,7 +221,10 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Pickup</div>
-                  <div className="font-medium">{ride.pickup}</div>
+
+                  <div className="font-medium">
+                    <RidePlace coordinates={ride?.pickupLocation} />
+                  </div>
                 </div>
               </div>
 
@@ -235,7 +238,9 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
                   <div className="text-sm text-muted-foreground">
                     Destination
                   </div>
-                  <div className="font-medium">{ride.destination}</div>
+                  <div className="font-medium">
+                    <RidePlace coordinates={ride?.destinationLocation} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -254,13 +259,15 @@ export function ActiveRide({ ride, onCancel }: ActiveRideProps) {
         )}
       </CardContent>
       <CardFooter>
-        <Button
-          variant="outline"
-          className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={onCancel}
-        >
-          Cancel Ride
-        </Button>
+        {ride.status === "accepted" && (
+          <Button
+            variant="outline"
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={onCancel}
+          >
+            Cancel Ride
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

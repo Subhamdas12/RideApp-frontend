@@ -14,7 +14,6 @@ export default function RiderProfilePage() {
     dispatch(getMyProfileAsync());
   }, [dispatch]);
 
-  console.log(riderProfile);
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b sticky top-0 z-10">
